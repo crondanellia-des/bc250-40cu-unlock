@@ -24,8 +24,8 @@ CONF40="/etc/modprobe.d/bc250-40cu.conf"
 BACKUP_SUFFIX=".bc250-backup-$(date +%Y%m%d)"
 BC250_PCI_ID="13fe"
 
-info()  { printf '\033[0;32m[+]\033[0m %s\n' "$*"; }
-warn()  { printf '\033[0;33m[!]\033[0m %s\n' "$*"; }
+info()  { printf '\033[0;32m[+]\033[0m %s\n' "$*" >&2; }
+warn()  { printf '\033[0;33m[!]\033[0m %s\n' "$*" >&2; }
 err()   { printf '\033[0;31m[E]\033[0m %s\n' "$*" >&2; }
 die()   { err "$@"; exit 1; }
 
@@ -106,6 +106,8 @@ check_deps() {
 find_source() {
     local d
     for d in \
+        "/usr/src/linux-cachyos" \
+        "/usr/src/linux-cachyos-lts" \
         "/usr/src/linux-source-${KVER%%-*}" \
         "/usr/src/linux-source-${KVER%%+*}" \
         "/usr/src/linux-${KVER}" \
@@ -185,7 +187,10 @@ patch_source() {
     write_cc_patch "$cc_file"
 
     awk -v insertfile="$cc_file" '
-    /static.*gfx_v10_0_get_cu_info/ { in_cu_info = 1 }
+    /static.*gfx_v10_0_get_cu_info/ && /\{/ { in_cu_info = 1 }
+    /static.*gfx_v10_0_get_cu_info/ && !/\{/ { pending_cu_info = 1 }
+    pending_cu_info && /;/ { pending_cu_info = 0 }
+    pending_cu_info && /\{/ { in_cu_info = 1; pending_cu_info = 0 }
     in_cu_info && /mutex_lock/ && !inserted {
         print
         while ((getline line < insertfile) > 0) print line
@@ -196,7 +201,7 @@ patch_source() {
     { print }
     ' "$gfx" > "${gfx}.new"
 
-    if grep -q 'bc250-cc-clear' "${gfx}.new"; then
+    if grep -q 'bc250-40cu-enable' "${gfx}.new"; then
         mv "${gfx}.new" "$gfx"
         rm -f "$cc_file"
         info "Patch applied successfully."
@@ -212,12 +217,12 @@ build_module() {
     [ -d "$amdgpu_dir" ] || die "amdgpu source directory not found"
 
     info "Building amdgpu module for kernel ${KVER} (2-5 min)..."
-    make -C "${MODDIR}/build" M="$amdgpu_dir" -j"$(nproc)" modules 2>&1 | tail -5
+    make -C "${MODDIR}/build" M="$amdgpu_dir" CC=clang LD=ld.lld -j"$(nproc)" modules 2>&1 | tail -5
 
     local built="${amdgpu_dir}/amdgpu.ko"
     [ -f "$built" ] || die "Build failed - amdgpu.ko not produced"
 
-    if ! strings "$built" | grep -q 'bc250_cc_write_mode'; then
+    if ! modinfo "$built" 2>/dev/null | grep -q 'bc250_cc_write_mode'; then
         die "Built module missing bc250_cc_write_mode - patch failed"
     fi
 
