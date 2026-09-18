@@ -43,13 +43,13 @@ fi
 
 echo "[2/4] Ejecutando compilación del módulo..."
 # Llamar al script original solo para compilar e instalar el módulo
-if [ ! -f "./scripts/bc250-enable-40cu.sh" ]; then
-    echo "Error: No se encuentra ./scripts/bc250-enable-40cu.sh"
+if [ ! -f "./scripts/bc250-enable-40cu-arch.sh" ]; then
+    echo "Error: No se encuentra ./scripts/bc250-enable-40cu-arch.sh"
     echo "Asegúrate de ejecutar este script desde la raíz del repositorio."
     exit 1
 fi
 
-./scripts/bc250-enable-40cu.sh build
+./scripts/bc250-enable-40cu-arch.sh build
 
 echo "[3/4] Configurando parámetros del kernel (modprobe)..."
 CONF40="/etc/modprobe.d/bc250-40cu.conf"
@@ -58,6 +58,7 @@ echo "Archivo modprobe creado: $CONF40"
 
 echo "[4/4] Reconstruyendo initramfs (mkinitcpio)..."
 # Vital en Arch/CachyOS para cargar el módulo parcheado de forma temprana en el arranque (KMS)
+cp patch/hooks/89-amdgpu-bc250.hook /etc/pacman.d/hooks/
 mkinitcpio -P
 
 echo "================================================="

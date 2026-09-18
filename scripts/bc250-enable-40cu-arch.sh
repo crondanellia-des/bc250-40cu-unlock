@@ -15,7 +15,7 @@
 
 set -euo pipefail
 
-KVER="$(uname -r)"
+KVER="${TARGET_KVER:-$(uname -r)}"
 KVER_BASE="${KVER%%-*}"          # e.g. 6.9.3 from 6.9.3-arch1-1
 MODDIR="/usr/lib/modules/${KVER}"
 MODPATH="${MODDIR}/kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko"
@@ -230,7 +230,7 @@ build_module() {
     fi
 
     info "Building amdgpu module for kernel ${KVER} (2-5 min)..."
-    make -C "$kbuild" M="$amdgpu_dir" -j"$(nproc)" modules 2>&1 | tail -10 >&2
+    make -C "$kbuild" M="$amdgpu_dir" CC=clang LD=ld.lld -j"$(nproc)" modules 2>&1 | tail -10 >&2
     local make_rc=${PIPESTATUS[0]}
 
     [ "$trace_copied" -eq 1 ] && rm -f "$trace_dst"

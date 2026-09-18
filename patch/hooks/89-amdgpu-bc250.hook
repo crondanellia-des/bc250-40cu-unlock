@@ -1,0 +1,12 @@
+[Trigger]
+Type = Path
+Operation = Install
+Operation = Upgrade
+Target = usr/lib/modules/*/pkgbase
+
+[Action]
+Description = Re-parcheando amdgpu para 40 CU (BC-250)...
+When = PostTransaction
+Exec = /opt/bc250-40cu-unlock/scripts/pacman-hook-wrapper.sh
+NeedsTargets
+
